@@ -1,9 +1,11 @@
-apiVersion: hcloud.apricote.de/v1alpha1
-kind: FloatingIP
+apiVersion: hcloud.zenjoy.be/v1alpha1
+kind: FloatingIPPool
 metadata:
   name: load-balancer-worker-pool
 spec:
-  IP: 78.46.244.114
+  ips: 
+  - 78.46.244.114
+  - 78.46.244.115
   intervalSeconds: 60
   nodeSelector:
     node-role.kubernetes.io/worker: "true"

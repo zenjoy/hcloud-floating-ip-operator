@@ -15,11 +15,11 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 
-	floatingipk8scli "github.com/apricote/hcloud-floating-ip-operator/client/k8s/clientset/versioned"
-	"github.com/apricote/hcloud-floating-ip-operator/config"
-	"github.com/apricote/hcloud-floating-ip-operator/pkg/log"
+	floatingipk8scli "github.com/zenjoy/hcloud-floating-ip-operator/client/k8s/clientset/versioned"
+	"github.com/zenjoy/hcloud-floating-ip-operator/config"
+	"github.com/zenjoy/hcloud-floating-ip-operator/pkg/log"
 
-	"github.com/apricote/hcloud-floating-ip-operator/pkg/operator"
+	"github.com/zenjoy/hcloud-floating-ip-operator/pkg/operator"
 )
 
 // Main is the main program.

@@ -1,15 +1,16 @@
 package operator
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/hetznercloud/hcloud-go/hcloud"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
 
-	hcloudv1alpha1 "github.com/apricote/hcloud-floating-ip-operator/apis/hcloud/v1alpha1"
-	"github.com/apricote/hcloud-floating-ip-operator/pkg/log"
-	"github.com/apricote/hcloud-floating-ip-operator/pkg/service"
+	hcloudv1alpha1 "github.com/zenjoy/hcloud-floating-ip-operator/apis/hcloud/v1alpha1"
+	"github.com/zenjoy/hcloud-floating-ip-operator/pkg/log"
+	"github.com/zenjoy/hcloud-floating-ip-operator/pkg/service"
 )
 
 // Handler is the floating ip assignment handler that will handle the
@@ -28,16 +29,16 @@ func newHandler(k8sCli kubernetes.Interface, hcloudCli *hcloud.Client, logger lo
 }
 
 // Add will ensure that the required assigner is running.
-func (h *handler) Add(obj runtime.Object) error {
-	fip, ok := obj.(*hcloudv1alpha1.FloatingIP)
+func (h *handler) Add(ctx context.Context, obj runtime.Object) error {
+	fip, ok := obj.(*hcloudv1alpha1.FloatingIPPool)
 	if !ok {
 		return fmt.Errorf("%v is not a floating ip object", obj.GetObjectKind())
 	}
 
-	return h.service.EnsureFloatingIP(fip)
+	return h.service.EnsureFloatingIPPool(fip)
 }
 
 // Delete will ensure the reuited pod terminator is not running.
-func (h *handler) Delete(name string) error {
-	return h.service.DeleteFloatingIP(name)
+func (h *handler) Delete(ctx context.Context, name string) error {
+	return h.service.DeleteFloatingIPPool(name)
 }

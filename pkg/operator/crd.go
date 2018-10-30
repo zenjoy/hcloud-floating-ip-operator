@@ -8,8 +8,8 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 
-	hcloudv1alpha1 "github.com/apricote/hcloud-floating-ip-operator/apis/hcloud/v1alpha1"
-	floatingipk8scli "github.com/apricote/hcloud-floating-ip-operator/client/k8s/clientset/versioned"
+	hcloudv1alpha1 "github.com/zenjoy/hcloud-floating-ip-operator/apis/hcloud/v1alpha1"
+	floatingipk8scli "github.com/zenjoy/hcloud-floating-ip-operator/client/k8s/clientset/versioned"
 )
 
 // floatingIPCRD is the crd floating ip.
@@ -30,11 +30,11 @@ func newFloatingIPCRD(floatingIPCli floatingipk8scli.Interface, crdCli crd.Inter
 // floatingIPCRD satisfies resource.crd interface.
 func (p *floatingIPCRD) Initialize() error {
 	crd := crd.Conf{
-		Kind:       hcloudv1alpha1.FloatingIPKind,
-		NamePlural: hcloudv1alpha1.FloatingIPNamePlural,
+		Kind:       hcloudv1alpha1.FloatingIPPoolKind,
+		NamePlural: hcloudv1alpha1.FloatingIPPoolNamePlural,
 		Group:      hcloudv1alpha1.SchemeGroupVersion.Group,
 		Version:    hcloudv1alpha1.SchemeGroupVersion.Version,
-		Scope:      hcloudv1alpha1.FloatingIPScope,
+		Scope:      hcloudv1alpha1.FloatingIPPoolScope,
 	}
 
 	return p.crdCli.EnsurePresent(crd)
@@ -44,15 +44,15 @@ func (p *floatingIPCRD) Initialize() error {
 func (p *floatingIPCRD) GetListerWatcher() cache.ListerWatcher {
 	return &cache.ListWatch{
 		ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
-			return p.floatingIPCli.HcloudV1alpha1().FloatingIPs().List(options)
+			return p.floatingIPCli.HcloudV1alpha1().FloatingIPPools().List(options)
 		},
 		WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
-			return p.floatingIPCli.HcloudV1alpha1().FloatingIPs().Watch(options)
+			return p.floatingIPCli.HcloudV1alpha1().FloatingIPPools().Watch(options)
 		},
 	}
 }
 
 // GetObject satisfies resource.crd interface (and retrieve.Retriever).
 func (p *floatingIPCRD) GetObject() runtime.Object {
-	return &hcloudv1alpha1.FloatingIP{}
+	return &hcloudv1alpha1.FloatingIPPool{}
 }

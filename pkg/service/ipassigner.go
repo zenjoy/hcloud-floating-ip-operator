@@ -16,8 +16,8 @@ import (
 
 	"github.com/hetznercloud/hcloud-go/hcloud"
 
-	hcloudv1alpha1 "github.com/apricote/hcloud-floating-ip-operator/apis/hcloud/v1alpha1"
-	"github.com/apricote/hcloud-floating-ip-operator/pkg/log"
+	hcloudv1alpha1 "github.com/zenjoy/hcloud-floating-ip-operator/apis/hcloud/v1alpha1"
+	"github.com/zenjoy/hcloud-floating-ip-operator/pkg/log"
 )
 
 const (
@@ -40,7 +40,7 @@ func (t *timeStd) Now() time.Time                         { return time.Now() }
 
 // IPAssigner will verify ip assignment at regular intervals.
 type IPAssigner struct {
-	fip       *hcloudv1alpha1.FloatingIP
+	fip       *hcloudv1alpha1.FloatingIPPool
 	k8sCli    kubernetes.Interface
 	hcloudCli *hcloud.Client
 	logger    log.Logger
@@ -52,7 +52,7 @@ type IPAssigner struct {
 }
 
 // NewIPAssigner returns a new ip assigner.
-func NewIPAssigner(fip *hcloudv1alpha1.FloatingIP, k8sCli kubernetes.Interface, hcloudCli *hcloud.Client, logger log.Logger) *IPAssigner {
+func NewIPAssigner(fip *hcloudv1alpha1.FloatingIPPool, k8sCli kubernetes.Interface, hcloudCli *hcloud.Client, logger log.Logger) *IPAssigner {
 	return &IPAssigner{
 		fip:       fip,
 		k8sCli:    k8sCli,
@@ -63,7 +63,7 @@ func NewIPAssigner(fip *hcloudv1alpha1.FloatingIP, k8sCli kubernetes.Interface, 
 }
 
 // NewCustomIPAssigner is a constructor that lets you customize everything on the object construction.
-func NewCustomIPAssigner(fip *hcloudv1alpha1.FloatingIP, k8sCli kubernetes.Interface, hcloudCli *hcloud.Client, time TimeWrapper, logger log.Logger) *IPAssigner {
+func NewCustomIPAssigner(fip *hcloudv1alpha1.FloatingIPPool, k8sCli kubernetes.Interface, hcloudCli *hcloud.Client, time TimeWrapper, logger log.Logger) *IPAssigner {
 	return &IPAssigner{
 		fip:       fip,
 		k8sCli:    k8sCli,
@@ -74,7 +74,7 @@ func NewCustomIPAssigner(fip *hcloudv1alpha1.FloatingIP, k8sCli kubernetes.Inter
 }
 
 // SameSpec checks if the ip assigner has the same spec.
-func (p *IPAssigner) SameSpec(fip *hcloudv1alpha1.FloatingIP) bool {
+func (p *IPAssigner) SameSpec(fip *hcloudv1alpha1.FloatingIPPool) bool {
 	return reflect.DeepEqual(p.fip.Spec, fip.Spec)
 }
 
@@ -142,27 +142,110 @@ func (p *IPAssigner) assign() error {
 		return fmt.Errorf("%s ip assigner: 0 nodes probable targets", p.fip.Name)
 	}
 
-	// Get random pods.
-	target := p.getRandomNode(nodes)
-	p.logger.Infof("%s ip assigner will assign to node %s", p.fip.Name, target.Name)
+	// Get nodes in random order.
+	targets, targetNames := p.getRandomNodes(nodes)
 
-	// Assign
-	hetznerIP, err := p.findHCloudFloatingIP()
+	// Get available Hetzner IPs
+	hetznerIps, err := p.findHCloudFloatingIps()
 	if err != nil {
 		return err
 	}
 
-	server, err := p.findServer(&target)
+	// Get all Hetzner servers #TODO: support pagination or filter to get only nodes in probableNodes?
+	hetznerServers, err := p.findServers()
 	if err != nil {
 		return err
 	}
+	var hetznerServersByID = make(map[int]*hcloud.Server)
+	var hetznerServersByName = make(map[string]*hcloud.Server)
 
-	_, _, err = p.hcloudCli.FloatingIP.Assign(context.TODO(), hetznerIP, server)
-	if err != nil {
-		return err
+	for i := range hetznerServers {
+		server := hetznerServers[i]
+		hetznerServersByID[server.ID] = server
+		hetznerServersByName[server.Name] = server
 	}
 
-	p.logger.Infof("%s ip assigner assigned to node %s", p.fip.Name, target.Name)
+	var hetznerIpsToAssign = make([]*hcloud.FloatingIP, 0)
+	var assignedServers = make([]string, 0)
+	var assignments = map[string]([]*hcloud.FloatingIP){}
+
+	// Check which ips needs to be assigned
+	for i := range hetznerIps {
+		if hetznerIps[i].Server == nil {
+			p.logger.Infof("%s ip %s is not assigned to any node", p.fip.Name, hetznerIps[i].IP.String())
+			hetznerIpsToAssign = append(hetznerIpsToAssign, hetznerIps[i])
+		} else {
+			var found = false
+			var serverName = "---"
+			var server = hetznerServersByID[hetznerIps[i].Server.ID]
+
+			if server != nil {
+				serverName = server.Name
+			}
+
+			for j := range targets {
+				if targets[j].Name == serverName {
+					found = true
+				}
+			}
+			if found {
+				assignedServers = append(assignedServers, serverName)
+				assignments[serverName] = append(assignments[serverName], hetznerIps[i])
+			} else {
+				p.logger.Infof("%s ip %s is assigned to unknown node", p.fip.Name, hetznerIps[i].IP.String())
+				hetznerIpsToAssign = append(hetznerIpsToAssign, hetznerIps[i])
+			}
+		}
+	}
+
+	if (len(hetznerIps)-len(hetznerIpsToAssign)) >= len(targets) &&
+		len(assignments) < len(targets) &&
+		len(assignments) < (len(hetznerIps)-len(hetznerIpsToAssign)) {
+		i := 0
+		j := 0
+		nbIpsToReassign := ((len(hetznerIps) - len(hetznerIpsToAssign)) - len(assignments))
+
+		p.logger.Infof("%s ips are not equally spread over possible targets", p.fip.Name)
+
+		for i < nbIpsToReassign && j < 100 { // prevent endless loop
+			for k, v := range assignments {
+				if len(v) > 1 {
+					ip, v := v[0], v[1:]
+					assignments[k] = v
+					hetznerIpsToAssign = append(hetznerIpsToAssign, ip)
+					p.logger.Infof("%s ip %s will be reassigned", p.fip.Name, ip.IP.String())
+					i++
+				}
+				if i >= nbIpsToReassign {
+					break
+				}
+			}
+			j++
+		}
+	}
+
+	unassignedServers := p.difference(targetNames, assignedServers)
+
+	for i := range hetznerIpsToAssign {
+		var nodeName string
+
+		// first use any servers with no ip assigned yet
+		if len(unassignedServers) > 0 {
+			nodeName, unassignedServers = unassignedServers[0], unassignedServers[1:]
+		} else {
+			nodeName = targetNames[i%len(targetNames)]
+		}
+
+		server := hetznerServersByName[nodeName]
+
+		_, _, err = p.hcloudCli.FloatingIP.Assign(context.TODO(), hetznerIpsToAssign[i], server)
+		if err != nil {
+			return err
+		}
+
+		p.logger.Infof("%s ip %s assigned to node %s", p.fip.Name, hetznerIpsToAssign[i].IP.String(), nodeName)
+	}
+
 	return nil
 }
 
@@ -176,19 +259,40 @@ func (p *IPAssigner) getProbableNodes() (*corev1.NodeList, error) {
 	return p.k8sCli.CoreV1().Nodes().List(opts)
 }
 
-// getRandomNode will select one node randomly.
-func (p *IPAssigner) getRandomNode(nodes *corev1.NodeList) corev1.Node {
-	// Return random index.
+// getRandomNodes will shuffle the list of available nodes.
+func (p *IPAssigner) getRandomNodes(nodes *corev1.NodeList) ([]corev1.Node, []string) {
 	items := nodes.Items
-	return items[rand.Intn(len(items))]
+	nodeNames := make([]string, len(items))
+
+	r := rand.New(rand.NewSource(time.Now().Unix()))
+	// We start at the end of the items, inserting our random
+	// values one at a time.
+	for n := len(items); n > 0; n-- {
+		randIndex := r.Intn(n)
+		// We swap the value at index n-1 and the random index
+		// to move our randomly chosen value to the end of the
+		// items, and to move the value that was at n-1 into our
+		// unshuffled portion of the items.
+		items[n-1], items[randIndex] = items[randIndex], items[n-1]
+	}
+
+	for i := range items {
+		nodeNames[i] = items[i].Name
+	}
+
+	return items, nodeNames
 }
 
 // findHCloudFloatingIP will return a hcloud FloatingIP resource that matches
 // the ip specified in the FloatingIP CRD resource
-func (p *IPAssigner) findHCloudFloatingIP() (*hcloud.FloatingIP, error) {
-	ip := net.ParseIP(p.fip.Spec.IP)
-	if ip == nil {
-		return nil, fmt.Errorf("error parsing ip from spec: %s", p.fip.Spec.IP)
+func (p *IPAssigner) findHCloudFloatingIps() ([]*hcloud.FloatingIP, error) {
+	ips := make([]net.IP, len(p.fip.Spec.Ips))
+
+	for i := range p.fip.Spec.Ips {
+		ips[i] = net.ParseIP(p.fip.Spec.Ips[i])
+		if ips[i] == nil {
+			return nil, fmt.Errorf("error parsing ip from spec: %s", p.fip.Spec.Ips[i])
+		}
 	}
 
 	fips, err := p.hcloudCli.FloatingIP.All(context.TODO())
@@ -196,22 +300,61 @@ func (p *IPAssigner) findHCloudFloatingIP() (*hcloud.FloatingIP, error) {
 		return nil, err
 	}
 
-	var hetznerIP *hcloud.FloatingIP
+	hetznerIps := make([]*hcloud.FloatingIP, len(ips))
+
 	for i := range fips {
-		if fips[i].IP.Equal(ip) {
-			hetznerIP = fips[i]
+		for j := range ips {
+			if fips[i].IP.Equal(ips[j]) {
+				hetznerIps[j] = fips[i]
+			}
 		}
 	}
 
-	if hetznerIP == nil {
-		return nil, fmt.Errorf("ip %s does not match any floating ip resource", ip.String())
+	for i := range hetznerIps {
+		if hetznerIps[i] == nil {
+			return nil, fmt.Errorf("ip %s does not match any floating ip resource", ips[i].String())
+		}
 	}
 
-	return hetznerIP, nil
+	return hetznerIps, nil
 }
 
-func (p *IPAssigner) findServer(node *corev1.Node) (*hcloud.Server, error) {
-	server, _, err := p.hcloudCli.Server.GetByName(context.TODO(), node.Name)
+func (p *IPAssigner) findServer(nodeName string) (*hcloud.Server, error) {
+	server, _, err := p.hcloudCli.Server.GetByName(context.TODO(), nodeName)
 
 	return server, err
+}
+
+func (p *IPAssigner) findServers() ([]*hcloud.Server, error) {
+	servers, err := p.hcloudCli.Server.All(context.TODO())
+
+	return servers, err
+}
+
+func (p *IPAssigner) difference(slice1 []string, slice2 []string) []string {
+	var diff []string
+
+	// Loop two times, first to find slice1 strings not in slice2,
+	// second loop to find slice2 strings not in slice1
+	for i := 0; i < 2; i++ {
+		for _, s1 := range slice1 {
+			found := false
+			for _, s2 := range slice2 {
+				if s1 == s2 {
+					found = true
+					break
+				}
+			}
+			// String not found. We add it to return slice
+			if !found {
+				diff = append(diff, s1)
+			}
+		}
+		// Swap the slices, only if it was the first loop
+		if i == 0 {
+			slice1, slice2 = slice2, slice1
+		}
+	}
+
+	return diff
 }

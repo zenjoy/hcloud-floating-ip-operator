@@ -1,8 +1,8 @@
 package versioned
 
 import (
-	hcloudv1alpha1 "github.com/apricote/hcloud-floating-ip-operator/client/k8s/clientset/versioned/typed/hcloud/v1alpha1"
 	glog "github.com/golang/glog"
+	hcloudv1alpha1 "github.com/zenjoy/hcloud-floating-ip-operator/client/k8s/clientset/versioned/typed/hcloud/v1alpha1"
 	discovery "k8s.io/client-go/discovery"
 	rest "k8s.io/client-go/rest"
 	flowcontrol "k8s.io/client-go/util/flowcontrol"

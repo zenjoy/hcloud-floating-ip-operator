@@ -19,7 +19,7 @@ spec:
       serviceAccount: hcloud-floating-ip-operator
       containers:
       - name: operator
-        image: apricote/hcloud-floating-ip-operator:latest
+        image: zenjoy/hcloud-floating-ip-operator:latest
         env:
         - name: HCLOUD_API_TOKEN
           valueFrom:

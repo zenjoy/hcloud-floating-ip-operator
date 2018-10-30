@@ -6,7 +6,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
-	hcloudfloatingipoperator "github.com/apricote/hcloud-floating-ip-operator/apis/hcloud"
+	hcloudfloatingipoperator "github.com/zenjoy/hcloud-floating-ip-operator/apis/hcloud"
 )
 
 const (
@@ -15,10 +15,10 @@ const (
 
 // FloatingIp constants
 const (
-	FloatingIPKind       = "FloatingIP"
-	FloatingIPName       = "floatingip"
-	FloatingIPNamePlural = "floatingips"
-	FloatingIPScope      = apiextensionsv1beta1.ClusterScoped
+	FloatingIPPoolKind       = "FloatingIPPool"
+	FloatingIPPoolName       = "floatingippool"
+	FloatingIPPoolNamePlural = "floatingippools"
+	FloatingIPPoolScope      = apiextensionsv1beta1.ClusterScoped
 )
 
 // SchemeGroupVersion is group version used to register these objects
@@ -47,8 +47,7 @@ var (
 // Adds the list of known types to Scheme.
 func addKnownTypes(scheme *runtime.Scheme) error {
 	scheme.AddKnownTypes(SchemeGroupVersion,
-		&FloatingIP{},
-		&FloatingIPList{},
+		&FloatingIPPool{},
 	)
 	metav1.AddToGroupVersion(scheme, SchemeGroupVersion)
 	return nil

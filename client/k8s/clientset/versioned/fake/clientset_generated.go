@@ -1,9 +1,9 @@
 package fake
 
 import (
-	clientset "github.com/apricote/hcloud-floating-ip-operator/client/k8s/clientset/versioned"
-	hcloudv1alpha1 "github.com/apricote/hcloud-floating-ip-operator/client/k8s/clientset/versioned/typed/hcloud/v1alpha1"
-	fakehcloudv1alpha1 "github.com/apricote/hcloud-floating-ip-operator/client/k8s/clientset/versioned/typed/hcloud/v1alpha1/fake"
+	clientset "github.com/zenjoy/hcloud-floating-ip-operator/client/k8s/clientset/versioned"
+	hcloudv1alpha1 "github.com/zenjoy/hcloud-floating-ip-operator/client/k8s/clientset/versioned/typed/hcloud/v1alpha1"
+	fakehcloudv1alpha1 "github.com/zenjoy/hcloud-floating-ip-operator/client/k8s/clientset/versioned/typed/hcloud/v1alpha1/fake"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/discovery"

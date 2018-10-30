@@ -8,7 +8,7 @@ import (
 
 	"k8s.io/client-go/util/homedir"
 
-	"github.com/apricote/hcloud-floating-ip-operator/pkg/operator"
+	"github.com/zenjoy/hcloud-floating-ip-operator/pkg/operator"
 )
 
 // Flags are the controller flags.

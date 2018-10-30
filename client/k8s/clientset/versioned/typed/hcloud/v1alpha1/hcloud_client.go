@@ -1,24 +1,24 @@
 package v1alpha1
 
 import (
-	v1alpha1 "github.com/apricote/hcloud-floating-ip-operator/apis/hcloud/v1alpha1"
-	"github.com/apricote/hcloud-floating-ip-operator/client/k8s/clientset/versioned/scheme"
+	v1alpha1 "github.com/zenjoy/hcloud-floating-ip-operator/apis/hcloud/v1alpha1"
+	"github.com/zenjoy/hcloud-floating-ip-operator/client/k8s/clientset/versioned/scheme"
 	serializer "k8s.io/apimachinery/pkg/runtime/serializer"
 	rest "k8s.io/client-go/rest"
 )
 
 type HcloudV1alpha1Interface interface {
 	RESTClient() rest.Interface
-	FloatingIPsGetter
+	FloatingIPPoolsGetter
 }
 
-// HcloudV1alpha1Client is used to interact with features provided by the hcloud.apricote.de group.
+// HcloudV1alpha1Client is used to interact with features provided by the hcloud.zenjoy.be group.
 type HcloudV1alpha1Client struct {
 	restClient rest.Interface
 }
 
-func (c *HcloudV1alpha1Client) FloatingIPs() FloatingIPInterface {
-	return newFloatingIPs(c)
+func (c *HcloudV1alpha1Client) FloatingIPPools() FloatingIPPoolInterface {
+	return newFloatingIPPools(c)
 }
 
 // NewForConfig creates a new HcloudV1alpha1Client for the given config.

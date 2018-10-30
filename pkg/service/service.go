@@ -6,13 +6,13 @@ import (
 	"github.com/hetznercloud/hcloud-go/hcloud"
 	"k8s.io/client-go/kubernetes"
 
-	hcloudv1alpha1 "github.com/apricote/hcloud-floating-ip-operator/apis/hcloud/v1alpha1"
-	"github.com/apricote/hcloud-floating-ip-operator/pkg/log"
+	hcloudv1alpha1 "github.com/zenjoy/hcloud-floating-ip-operator/apis/hcloud/v1alpha1"
+	"github.com/zenjoy/hcloud-floating-ip-operator/pkg/log"
 )
 
 type Syncer interface {
-	EnsureFloatingIP(pt *hcloudv1alpha1.FloatingIP) error
-	DeleteFloatingIP(name string) error
+	EnsureFloatingIPPool(pt *hcloudv1alpha1.FloatingIPPool) error
+	DeleteFloatingIPPool(name string) error
 }
 
 // Service is the service that will ensure that the desired floating ip CRDs are met.
@@ -35,7 +35,7 @@ func NewService(k8sCli kubernetes.Interface, hcloudCli *hcloud.Client, logger lo
 }
 
 // EnsureFloatingIP satisfies ServiceSyncer interface.
-func (c *Service) EnsureFloatingIP(fip *hcloudv1alpha1.FloatingIP) error {
+func (c *Service) EnsureFloatingIPPool(fip *hcloudv1alpha1.FloatingIPPool) error {
 	ipav, ok := c.reg.Load(fip.Name)
 	var ipa *IPAssigner
 
@@ -45,7 +45,7 @@ func (c *Service) EnsureFloatingIP(fip *hcloudv1alpha1.FloatingIP) error {
 		// If not the same spec means options have changed, so we don't longer need this ip assigner.
 		if !ipa.SameSpec(fip) {
 			c.logger.Infof("spec of %s changed, recreating ip assigner", ipa.fip.Name)
-			if err := c.DeleteFloatingIP(fip.Name); err != nil {
+			if err := c.DeleteFloatingIPPool(fip.Name); err != nil {
 				return err
 			}
 		} else { // We are ok, nothing changed.
@@ -62,7 +62,7 @@ func (c *Service) EnsureFloatingIP(fip *hcloudv1alpha1.FloatingIP) error {
 }
 
 // DeleteFloatingIP satisfies ServiceSyncer interface.
-func (c *Service) DeleteFloatingIP(name string) error {
+func (c *Service) DeleteFloatingIPPool(name string) error {
 	ipav, ok := c.reg.Load(name)
 	if !ok {
 		return nil

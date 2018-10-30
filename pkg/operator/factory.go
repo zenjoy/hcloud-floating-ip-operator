@@ -7,8 +7,8 @@ import (
 	"github.com/spotahome/kooper/operator/controller"
 	"k8s.io/client-go/kubernetes"
 
-	floatingipk8scli "github.com/apricote/hcloud-floating-ip-operator/client/k8s/clientset/versioned"
-	"github.com/apricote/hcloud-floating-ip-operator/pkg/log"
+	floatingipk8scli "github.com/zenjoy/hcloud-floating-ip-operator/client/k8s/clientset/versioned"
+	"github.com/zenjoy/hcloud-floating-ip-operator/pkg/log"
 )
 
 // New returns floating ip operator.
